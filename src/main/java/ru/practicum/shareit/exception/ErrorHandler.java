@@ -47,7 +47,7 @@ public class ErrorHandler {
         if (message.isBlank()) {
             message = "Ошибка валидации";
         }
-        log.warn("400 validation: {}", message);
+        log.warn("400 ошибка валидации: {}", message);
         return new ErrorResponse(message);
     }
 
