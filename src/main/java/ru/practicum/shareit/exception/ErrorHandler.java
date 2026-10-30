@@ -88,4 +88,10 @@ public class ErrorHandler {
         log.error("500: непредвиденная ошибка", e);
         return new ErrorResponse("Внутренняя ошибка сервера");
     }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleBadRequest(final BadRequestException e) {
+        return new ErrorResponse(e.getMessage());
+    }
 }

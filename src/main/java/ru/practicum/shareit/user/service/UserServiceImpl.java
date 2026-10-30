@@ -2,6 +2,7 @@ package ru.practicum.shareit.user.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.exception.ConflictException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.user.dto.UserDto;
@@ -14,11 +15,13 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
 
     @Override
+    @Transactional
     public UserDto create(UserDto userDto) {
         if (userRepository.existsByEmail(userDto.getEmail())) {
             throw new ConflictException("Email " + userDto.getEmail() + " уже используется");
@@ -28,6 +31,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserDto update(Long userId, UserDto userDto) {
         User existing = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + " не найден"));
@@ -45,7 +49,7 @@ public class UserServiceImpl implements UserService {
             existing.setEmail(userDto.getEmail());
         }
 
-        return UserMapper.toUserDto(userRepository.update(existing));
+        return UserMapper.toUserDto(userRepository.save(existing));
     }
 
     @Override
@@ -63,6 +67,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void delete(Long userId) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + " не найден"));
