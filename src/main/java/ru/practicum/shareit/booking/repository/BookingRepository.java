@@ -1,6 +1,8 @@
 package ru.practicum.shareit.booking.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.BookingStatus;
 
@@ -44,4 +46,16 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             Long bookerId, Long itemId, BookingStatus status, LocalDateTime now);
 
     List<Booking> findByItemIdInAndStatusOrderByStartDesc(List<Long> itemIds, BookingStatus status);
+
+    @Query("""
+        SELECT COUNT(b) > 0 FROM Booking b
+        WHERE b.item.id = :itemId
+          AND b.status IN :statuses
+          AND b.start < :end
+          AND b.end > :start
+        """)
+    boolean existsOverlapping(@Param("itemId") Long itemId,
+                              @Param("start") LocalDateTime start,
+                              @Param("end") LocalDateTime end,
+                              @Param("statuses") List<BookingStatus> statuses);
 }
