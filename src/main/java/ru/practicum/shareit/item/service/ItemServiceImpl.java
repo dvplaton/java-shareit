@@ -78,28 +78,8 @@ public class ItemServiceImpl implements ItemService {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь с id=" + itemId + " не найдена"));
 
-        List<CommentDto> comments = commentRepository.findByItemId(itemId).stream()
-                .map(CommentMapper::toCommentDto)
-                .collect(Collectors.toList());
-
-        BookingShortDto last = null;
-        BookingShortDto next = null;
-
-        if (userId != null && item.getOwner().getId().equals(userId)) {
-            LocalDateTime now = LocalDateTime.now();
-            last = bookingRepository
-                    .findFirstByItemIdAndStatusAndStartBeforeOrderByStartDesc(
-                            itemId, BookingStatus.APPROVED, now)
-                    .map(BookingMapper::toBookingShortDto)
-                    .orElse(null);
-            next = bookingRepository
-                    .findFirstByItemIdAndStatusAndStartAfterOrderByStartAsc(
-                            itemId, BookingStatus.APPROVED, now)
-                    .map(BookingMapper::toBookingShortDto)
-                    .orElse(null);
-        }
-
-        return ItemMapper.toItemDto(item, last, next, comments);
+        Map<Long, ItemDto> enriched = enrichItems(List.of(item), userId);
+        return enriched.get(item.getId());
     }
 
     @Override
@@ -112,28 +92,15 @@ public class ItemServiceImpl implements ItemService {
             return List.of();
         }
 
+        Map<Long, ItemDto> enriched = enrichItems(items, userId);
+        return items.stream()
+                .map(item -> enriched.get(item.getId()))
+                .collect(Collectors.toList());
+    }
+
+    private Map<Long, ItemDto> enrichItems(List<Item> items, Long userId) {
         List<Long> itemIds = items.stream().map(Item::getId).collect(Collectors.toList());
         LocalDateTime now = LocalDateTime.now();
-
-        // все APPROVED-бронирования владельца по его вещам
-        List<Booking> approved = bookingRepository
-                .findByItemIdInAndStatusOrderByStartDesc(itemIds, BookingStatus.APPROVED);
-
-        Map<Long, Booking> lastByItem = approved.stream()
-                .filter(b -> b.getStart().isBefore(now))
-                .collect(Collectors.toMap(
-                        b -> b.getItem().getId(),
-                        b -> b,
-                        (a, b) -> a.getStart().isAfter(b.getStart()) ? a : b
-                ));
-
-        Map<Long, Booking> nextByItem = approved.stream()
-                .filter(b -> b.getStart().isAfter(now))
-                .collect(Collectors.toMap(
-                        b -> b.getItem().getId(),
-                        b -> b,
-                        (a, b) -> a.getStart().isBefore(b.getStart()) ? a : b
-                ));
 
         Map<Long, List<CommentDto>> commentsByItem = commentRepository.findByItemIdIn(itemIds).stream()
                 .collect(Collectors.groupingBy(
@@ -141,14 +108,64 @@ public class ItemServiceImpl implements ItemService {
                         Collectors.mapping(CommentMapper::toCommentDto, Collectors.toList())
                 ));
 
+        Map<Long, Booking> lastByItem = Map.of();
+        Map<Long, Booking> nextByItem = Map.of();
+
+        boolean isOwnerView = !items.isEmpty()
+                && userId != null
+                && items.get(0).getOwner().getId().equals(userId);
+
+        // для getById список из 1 item — owner проверяется по этой вещи;
+        // для getAllByOwner все вещи одного владельца
+        if (userId != null) {
+            List<Item> ownerItems = items.stream()
+                    .filter(i -> i.getOwner().getId().equals(userId))
+                    .collect(Collectors.toList());
+
+            if (!ownerItems.isEmpty()) {
+                List<Long> ownerItemIds = ownerItems.stream().map(Item::getId).collect(Collectors.toList());
+                List<Booking> approved = bookingRepository
+                        .findByItemIdInAndStatusOrderByStartDesc(ownerItemIds, BookingStatus.APPROVED);
+
+                lastByItem = approved.stream()
+                        .filter(b -> b.getStart().isBefore(now))
+                        .collect(Collectors.toMap(
+                                b -> b.getItem().getId(),
+                                b -> b,
+                                (a, b) -> a.getStart().isAfter(b.getStart()) ? a : b
+                        ));
+
+                nextByItem = approved.stream()
+                        .filter(b -> b.getStart().isAfter(now))
+                        .collect(Collectors.toMap(
+                                b -> b.getItem().getId(),
+                                b -> b,
+                                (a, b) -> a.getStart().isBefore(b.getStart()) ? a : b
+                        ));
+            }
+        }
+
+        Map<Long, Booking> lastFinal = lastByItem;
+        Map<Long, Booking> nextFinal = nextByItem;
+
         return items.stream()
-                .map(item -> ItemMapper.toItemDto(
-                        item,
-                        BookingMapper.toBookingShortDto(lastByItem.get(item.getId())),
-                        BookingMapper.toBookingShortDto(nextByItem.get(item.getId())),
-                        commentsByItem.getOrDefault(item.getId(), Collections.emptyList())
-                ))
-                .collect(Collectors.toList());
+                .collect(Collectors.toMap(
+                        Item::getId,
+                        item -> {
+                            boolean showBookings = userId != null
+                                    && item.getOwner().getId().equals(userId);
+                            return ItemMapper.toItemDto(
+                                    item,
+                                    showBookings
+                                            ? BookingMapper.toBookingShortDto(lastFinal.get(item.getId()))
+                                            : null,
+                                    showBookings
+                                            ? BookingMapper.toBookingShortDto(nextFinal.get(item.getId()))
+                                            : null,
+                                    commentsByItem.getOrDefault(item.getId(), List.of())
+                            );
+                        }
+                ));
     }
 
     @Override
@@ -178,13 +195,7 @@ public class ItemServiceImpl implements ItemService {
                     "Оставлять комментарий может только пользователь, бравший вещь в аренду");
         }
 
-        Comment comment = Comment.builder()
-                .text(request.getText())
-                .item(item)
-                .author(author)
-                .created(LocalDateTime.now())
-                .build();
-
+        Comment comment = CommentMapper.toComment(request, item, author);
         return CommentMapper.toCommentDto(commentRepository.save(comment));
     }
 }

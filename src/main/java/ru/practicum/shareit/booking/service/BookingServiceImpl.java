@@ -50,14 +50,18 @@ public class BookingServiceImpl implements BookingService {
             throw new BadRequestException("Дата окончания должна быть позже даты начала");
         }
 
-        Booking booking = Booking.builder()
-                .start(request.getStart())
-                .end(request.getEnd())
-                .item(item)
-                .booker(booker)
-                .status(BookingStatus.WAITING)
-                .build();
+        boolean overlap = bookingRepository.existsOverlapping(
+                item.getId(),
+                request.getStart(),
+                request.getEnd(),
+                List.of(BookingStatus.WAITING, BookingStatus.APPROVED)
+        );
 
+        if (overlap) {
+            throw new BadRequestException("Вещь уже забронирована на выбранные даты");
+        }
+
+        Booking booking = BookingMapper.toBooking(request, item, booker);
         return BookingMapper.toBookingDto(bookingRepository.save(booking));
     }
 
