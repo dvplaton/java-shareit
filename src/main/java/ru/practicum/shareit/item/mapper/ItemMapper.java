@@ -26,6 +26,7 @@ public final class ItemMapper {
                 .name(item.getName())
                 .description(item.getDescription())
                 .available(item.getAvailable())
+                .requestId(item.getRequest() != null ? item.getRequest().getId() : null)
                 .lastBooking(lastBooking)
                 .nextBooking(nextBooking)
                 .comments(comments)
