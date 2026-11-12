@@ -14,6 +14,7 @@ import ru.practicum.shareit.user.dto.UserDto;
 import ru.practicum.shareit.user.service.UserService;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -50,5 +51,16 @@ class UserControllerTest {
 
         mvc.perform(get("/users/99"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void update_shouldReturnOk() throws Exception {
+        when(userService.update(eq(1L), any())).thenReturn(new UserDto(1L, "N", "n@mail.com"));
+
+        mvc.perform(patch("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"N\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("N"));
     }
 }

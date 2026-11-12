@@ -87,4 +87,14 @@ class BookingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1));
     }
+
+    @Test
+    void getAllByOwner_shouldReturnOk() throws Exception {
+        when(bookingService.getAllByOwner(eq(1L), any()))
+                .thenReturn(List.of(BookingDto.builder().id(3L).status(BookingStatus.WAITING).build()));
+
+        mvc.perform(get("/bookings/owner").param("state", "ALL").header("X-Sharer-User-Id", 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(3));
+    }
 }

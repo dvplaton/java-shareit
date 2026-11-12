@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.service.ItemService;
 import ru.practicum.shareit.request.dto.ItemRequestCreateDto;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @Transactional
@@ -38,13 +40,20 @@ class ItemRequestServiceImplTest {
     }
 
     @Test
-    void createAndGetOwn_shouldReturnRequestWithAnswerItems() {
+    void create_shouldReturnRequest() {
         ItemRequestDto created = itemRequestService.create(
                 requestorId, new ItemRequestCreateDto("нужна дрель"));
 
         assertThat(created.getId(), notNullValue());
         assertThat(created.getDescription(), equalTo("нужна дрель"));
+        assertThat(created.getCreated(), notNullValue());
         assertThat(created.getItems(), empty());
+    }
+
+    @Test
+    void getOwn_shouldReturnWithAnswerItems() {
+        ItemRequestDto created = itemRequestService.create(
+                requestorId, new ItemRequestCreateDto("нужна дрель"));
 
         itemService.create(ownerId, ItemDto.builder()
                 .name("Дрель")
@@ -62,7 +71,7 @@ class ItemRequestServiceImplTest {
     }
 
     @Test
-    void getAll_shouldNotReturnOwnRequests() {
+    void getAll_shouldNotIncludeOwn() {
         itemRequestService.create(requestorId, new ItemRequestCreateDto("свой"));
         ItemRequestDto foreign = itemRequestService.create(ownerId, new ItemRequestCreateDto("чужой"));
 
@@ -70,6 +79,29 @@ class ItemRequestServiceImplTest {
 
         assertThat(all, hasSize(1));
         assertThat(all.get(0).getId(), equalTo(foreign.getId()));
+    }
+
+    @Test
+    void getById_shouldReturnRequest() {
+        ItemRequestDto created = itemRequestService.create(
+                requestorId, new ItemRequestCreateDto("test"));
+
+        ItemRequestDto found = itemRequestService.getById(ownerId, created.getId());
+
+        assertThat(found.getId(), equalTo(created.getId()));
+        assertThat(found.getDescription(), equalTo("test"));
+    }
+
+    @Test
+    void getById_whenMissing_shouldThrow() {
+        assertThrows(NotFoundException.class,
+                () -> itemRequestService.getById(requestorId, 999L));
+    }
+
+    @Test
+    void create_whenUserMissing_shouldThrow() {
+        assertThrows(NotFoundException.class,
+                () -> itemRequestService.create(999L, new ItemRequestCreateDto("x")));
     }
 
     private static UserDto user(String name, String email) {

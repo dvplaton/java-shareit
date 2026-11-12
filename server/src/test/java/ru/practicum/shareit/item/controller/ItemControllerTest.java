@@ -89,4 +89,27 @@ class ItemControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.text").value("ок"));
     }
+
+    @Test
+    void update_shouldReturnOk() throws Exception {
+        when(itemService.update(eq(1L), eq(5L), any()))
+                .thenReturn(ItemDto.builder().id(5L).name("Upd").available(true).build());
+
+        mvc.perform(patch("/items/5")
+                        .header("X-Sharer-User-Id", 1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Upd\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Upd"));
+    }
+
+    @Test
+    void getAllByOwner_shouldReturnList() throws Exception {
+        when(itemService.getAllByOwner(1L)).thenReturn(List.of(
+                ItemDto.builder().id(1L).name("A").available(true).build()));
+
+        mvc.perform(get("/items").header("X-Sharer-User-Id", 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("A"));
+    }
 }
