@@ -54,4 +54,22 @@ class ErrorHandlerTest {
                         .content("{\"name\":\"A\",\"email\":\"a@mail.com\"}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void forbidden_shouldReturn403() throws Exception {
+        when(userService.create(any())).thenThrow(new ForbiddenException("forbid"));
+
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"A\",\"email\":\"a@mail.com\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unreadableBody_shouldReturn400() throws Exception {
+        mvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not-json"))
+                .andExpect(status().isBadRequest());
+    }
 }

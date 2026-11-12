@@ -151,6 +151,53 @@ class BookingServiceImplTest {
         assertThat(list.get(0).getStatus(), equalTo(BookingStatus.WAITING));
     }
 
+    @Test
+    void getAllByBooker_allStates_shouldNotThrow() {
+        bookingService.create(bookerId, book(itemId, 1, 2));
+
+        for (BookingState state : BookingState.values()) {
+            List<BookingDto> list = bookingService.getAllByBooker(bookerId, state);
+            assertThat(list, notNullValue());
+        }
+    }
+
+    @Test
+    void getAllByOwner_allStates_shouldNotThrow() {
+        bookingService.create(bookerId, book(itemId, 1, 2));
+
+        for (BookingState state : BookingState.values()) {
+            List<BookingDto> list = bookingService.getAllByOwner(ownerId, state);
+            assertThat(list, notNullValue());
+        }
+    }
+
+    @Test
+    void getAllByBooker_pastAndFuture() {
+        // future
+        bookingService.create(bookerId, book(itemId, 2, 3));
+
+        // past (если create позволяет)
+        BookItemRequestDto past = new BookItemRequestDto();
+        past.setItemId(itemId);
+        past.setStart(LocalDateTime.now().minusDays(5));
+        past.setEnd(LocalDateTime.now().minusDays(4));
+        BookingDto pastBooking = bookingService.create(bookerId, past);
+        bookingService.approve(ownerId, pastBooking.getId(), true);
+
+        assertThat(bookingService.getAllByBooker(bookerId, BookingState.FUTURE), not(empty()));
+        assertThat(bookingService.getAllByBooker(bookerId, BookingState.PAST), not(empty()));
+        assertThat(bookingService.getAllByBooker(bookerId, BookingState.WAITING), notNullValue());
+    }
+
+    @Test
+    void getAllByBooker_andOwner_allStates() {
+        bookingService.create(bookerId, book(itemId, 1, 2));
+        for (BookingState state : BookingState.values()) {
+            assertThat(bookingService.getAllByBooker(bookerId, state), notNullValue());
+            assertThat(bookingService.getAllByOwner(ownerId, state), notNullValue());
+        }
+    }
+
     private BookItemRequestDto book(Long itemId, int plusStartDays, int plusEndDays) {
         BookItemRequestDto req = new BookItemRequestDto();
         req.setItemId(itemId);
