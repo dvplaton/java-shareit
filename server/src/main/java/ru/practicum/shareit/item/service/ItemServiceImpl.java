@@ -120,10 +120,6 @@ public class ItemServiceImpl implements ItemService {
         Map<Long, Booking> lastByItem = Map.of();
         Map<Long, Booking> nextByItem = Map.of();
 
-        boolean isOwnerView = !items.isEmpty()
-                && userId != null
-                && items.get(0).getOwner().getId().equals(userId);
-
         // для getById список из 1 item — owner проверяется по этой вещи;
         // для getAllByOwner все вещи одного владельца
         if (userId != null) {
